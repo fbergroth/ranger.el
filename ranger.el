@@ -355,75 +355,150 @@ preview window."
     (cond
      ((eq  ranger-map-style 'ranger)
       (progn
+        ;; basics
         (define-key map "?"             'ranger-help)
-        (define-key map "               '" 'ranger-show-size)
-        (define-key map "!"             'dired-do-shell-command)
-        (define-key map (kbd "C-c C-e") 'wdired-change-to-wdired-mode)
+        (define-key map "du"            'ranger-show-size)
+        (define-key map "q"             'ranger-disable)
+        (define-key map (kbd "C-r")     'ranger-refresh)
+
+        ;; bookmarks
+        (define-key map (kbd "`")       'ranger-goto-mark)
+        (define-key map (kbd "'")       'ranger-goto-mark)
         (define-key map "B"             'ranger-show-bookmarks)
+        (define-key map "m"             'ranger-create-mark)
+        ;; TODO unset mark - um
+
+        ;; marking
+        (define-key map "u"             'dired-unmark)
+        (define-key map "v"             'dired-toggle-marks)
+        (define-key map (kbd "C-SPC")   'ranger-mark)
+        (define-key map (kbd "TAB")     'ranger-mark)
+        ;; TODO toggle mark - t
+        ;; TODO regexp toggle - "
+        ;; TODO unmark all files - uv
+
+        ;; dired commands
+        (define-key map "!"             'dired-do-shell-command)
         (define-key map "D"             'dired-do-delete)
+        (define-key map "R"             'dired-do-rename)
+
+        ;; navigation
+        (define-key map "-"             'ranger-up-directory)
+        (define-key map "gg"            'ranger-goto-top)
         (define-key map "G"             'ranger-goto-bottom)
+        (define-key map "h"             'ranger-up-directory)
+        (define-key map "j"             'ranger-next-file)
+        (define-key map "k"             'ranger-prev-file)
+        (define-key map "l"             'ranger-find-file)
+        ;; TODO page up / page down - C-f / C-b
+        ;; TODO half page up / down - J / K and C-d / C-u
+        (define-key map [left]          'ranger-up-directory)
+        (define-key map [down]          'ranger-next-file)
+        (define-key map [up]            'ranger-prev-file)
+        (define-key map [right]         'ranger-find-file)
+        (define-key map (kbd "RET")     'ranger-find-file)
+
+        ;; jumping around
+        (define-key map "["             'ranger-prev-parent)
+        (define-key map "]"             'ranger-next-parent)
+        ;; TODO traverse - }
+        (define-key map "f"             'ranger-search-files)
+        (define-key map "gh"            'ranger-go-home)
+        ;; TODO map ge cd /etc
+        ;; TODO map gu cd /usr
+        ;; TODO map gd cd /dev
+        ;; TODO map gl cd -r .
+        ;; TODO map gL cd -r %f
+        ;; TODO map go cd /opt
+        ;; TODO map gv cd /var
+        ;; TODO map gm cd /media
+        ;; TODO map gM cd /mnt
+        ;; TODO map gs cd /srv
+        ;; TODO map gr cd /
+        ;; TODO map gR eval fm.cd(ranger.RANGERDIR)
+        ;; TODO map g/ cd /
+        ;; TODO map g? cd /usr/share/doc/ranger
+
+
+        ;; history
+        (define-key map "zz"            'ranger-show-history)
         (define-key map "H"             'ranger-prev-history)
+        (define-key map "L"             'ranger-next-history)
+
+        ;; subtrees
         (define-key map "I"             'ranger-insert-subdir)
         (define-key map "J"             'ranger-next-subdir)
         (define-key map "K"             'ranger-prev-subdir)
-        (define-key map "L"             'ranger-next-history)
-        (define-key map "R"             'dired-do-rename)
-        (define-key map "S"             'ranger-pop-eshell)
-        (define-key map "["             'ranger-prev-parent)
-        (define-key map "]"             'ranger-next-parent)
-        (define-key map "f"             'ranger-search-files)
-        (define-key map "gg"            'ranger-goto-top)
-        (define-key map "gh"            'ranger-go-home)
-        (define-key map "h"             'ranger-up-directory)
-        (define-key map [left]          'ranger-up-directory)
-        (define-key map "-"             'ranger-up-directory)
+
+        ;; preview windows
         (define-key map "i"             'ranger-preview-toggle)
-        (define-key map "j"             'ranger-next-file)
-        (define-key map [down]          'ranger-next-file)
-        (define-key map "k"             'ranger-prev-file)
-        (define-key map [up]            'ranger-prev-file)
-        (define-key map "l"             'ranger-find-file)
-        (define-key map [right]         'ranger-find-file)
-        (define-key map "m"             'ranger-create-mark)
-        (define-key map "o"             'ranger-sort-criteria)
-        (define-key map "ws"            'ranger-open-file-vertically)
-        (define-key map "wv"            'ranger-open-file-horizontally)
-        (define-key map "wf"            'ranger-open-file-frame)
-        (define-key map "we"            'ranger-open-in-external-app)
-        (define-key map "q"             'ranger-disable)
-        (define-key map "u"             'dired-unmark)
-        (define-key map "v"             'dired-toggle-marks)
-        (define-key map "zz"            'ranger-show-history)
-        ;; copy and paste)
+        (define-key map (kbd "C-j")     'ranger-scroll-page-down)
+        (define-key map (kbd "C-k")     'ranger-scroll-page-up)
+
+        ;; copy and paste
         (define-key map "yy"            'ranger-copy)
+        ;; TODO undo copy - uy
+        ;; TODO add to copy - ya
+        ;; TODO remove from copy - yr
         (define-key map "dd"            'ranger-cut)
+        ;; TODO undo cut - ud
+        ;; TODO add to cut - da
+        ;; TODO remove from cut - dr
         (define-key map "pp"            'ranger-paste)
         (define-key map "po"            'ranger-paste-over)
+        ;; TODO paste link - pl
         (define-key map "p?"            'ranger-show-copy-contents)
-        ;; settings)
+
+        ;; settings
+        (define-key map "o"             'ranger-sort-criteria)
         (define-key map "z+"            'ranger-more-parents)
         (define-key map "z-"            'ranger-less-parents)
         (define-key map "zh"            'ranger-toggle-dotfiles)
         (define-key map "zi"            'ranger-toggle-literal)
         (define-key map "zp"            'ranger-minimal-toggle)
         (define-key map "zf"            'ranger-toggle-scale-images)
-        ;; tabs)
+        ;; TODO map zc    toggle_option collapse_preview
+        ;; TODO map zd    toggle_option sort_directories_first
+        ;; TODO map <C-h> toggle_option show_hidden
+        ;; TODO map zi    toggle_option preview_images
+        ;; TODO map zp    toggle_option preview_files
+
+        ;; tabs
         (define-key map "gn"            'ranger-new-tab)
         (define-key map "gT"            'ranger-prev-tab)
         (define-key map "gt"            'ranger-next-tab)
         (define-key map "gc"            'ranger-close-tab)
-        (define-key map (kbd "C-r")     'ranger-refresh)
-        (define-key map (kbd "C-SPC")   'ranger-mark)
-        (define-key map (kbd "TAB")     'ranger-mark)
-        (define-key map (kbd "C-j")     'ranger-scroll-page-down)
-        (define-key map (kbd "C-k")     'ranger-scroll-page-up)
-        (define-key map (kbd "RET")     'ranger-find-file)
-        (define-key map (kbd "`")       'ranger-goto-mark)
+        ;; TODO map <C-n>     tab_new ~
+        ;; TODO map <C-w>     tab_close
+        ;; TODO map <TAB>     tab_move 1
+        ;; TODO map <S-TAB>   tab_move -1
+        ;; TODO map <A-Right> tab_move 1
+        ;; TODO map <A-Left>  tab_move -1
+        ;; TODO map uq        tab_restore
+        ;; TODO map <a-1>     tab_open 1
+        ;; TODO map <a-2>     tab_open 2
+        ;; TODO map <a-3>     tab_open 3
+        ;; TODO map <a-4>     tab_open 4
+        ;; TODO map <a-5>     tab_open 5
+        ;; TODO map <a-6>     tab_open 6
+        ;; TODO map <a-7>     tab_open 7
+        ;; TODO map <a-8>     tab_open 8
+        ;; TODO map <a-9>     tab_open 9
 
         ;; search
         (define-key map "/"             'ranger-search)
         (define-key map "n"             'ranger-search-next)
         (define-key map "N"             'ranger-search-previous)
+
+        ;; utilities
+        (define-key map (kbd "C-c C-e") 'wdired-change-to-wdired-mode)
+        (define-key map "S"             'ranger-pop-eshell)
+
+        ;; file opening
+        (define-key map "ws"            'ranger-open-file-vertically)
+        (define-key map "wv"            'ranger-open-file-horizontally)
+        (define-key map "wf"            'ranger-open-file-frame)
+        (define-key map "we"            'ranger-open-in-external-app)
         ))
      )
         ;; define a prefix for all dired commands
@@ -1284,7 +1359,7 @@ currently selected file in ranger. `IGNORE-HISTORY' will not update history-ring
            (fattr (file-attributes entry))
            (fwidth (frame-width))
            (file-size (if sizes (concat "File "
-                                        (file-size-human-readable (nth 7 fattr))) "Press \' for size info."))
+                                        (file-size-human-readable (nth 7 fattr))) "Press \'du\' for size info."))
            (dir-size (if sizes (concat "Dir " (ranger--get-file-sizes
                                                (ranger--get-file-listing
                                                 dired-directory)
