@@ -100,10 +100,17 @@
   :group 'ranger
   :type 'boolean)
 
+;; TODO switch naming convention from dotfiles to hidden
 (defcustom ranger-show-dotfiles t
   "When t it will show dotfiles in directory."
   :group 'ranger
   :type 'boolean)
+
+(defcustom ranger-hidden-filter
+  "^\.|\.(?:pyc|pyo|bak|swp)$|^lost\+found$|^__(py)?cache__$"
+  "Regexp of filenames to hide."
+  :group 'ranger
+  :type 'string)
 
 (defcustom ranger-history-length 30
   "Length of history ranger will track."
@@ -223,6 +230,13 @@ Outputs a string that will show up on the header-line."
   :group 'ranger
   :type 'function)
 
+(defcustom ranger-map-style 'ranger
+  "Specify style to display tabs in ranger."
+  :group 'ranger
+  :type '(radio (const :tag "Ranger" :value ranger)
+                (const :tag "Dired" :value dired)
+                (const :tag "Emacs" :value emacs)))
+
 (defcustom ranger-tabs-style 'normal
   "Specify style to display tabs in ranger."
   :group 'ranger
@@ -328,6 +342,8 @@ preview window."
                                  ranger-omit
                                  auto-revert-mode
                                  ranger-sub-window-setup))
+;; TODO combine all dired appearance and sorting functions together
+;; TODO add persistent hide-details setting
 
 ;; maps
 (defvar ranger-dired-map nil
@@ -335,84 +351,85 @@ preview window."
 
 (defvar ranger-mode-map
   (let ((map (make-sparse-keymap)))
+    ;; define bindings based on
+    (cond
+     ((eq  ranger-map-style 'ranger)
+      (progn
+        (define-key map "?"             'ranger-help)
+        (define-key map "               '" 'ranger-show-size)
+        (define-key map "!"             'dired-do-shell-command)
+        (define-key map (kbd "C-c C-e") 'wdired-change-to-wdired-mode)
+        (define-key map "B"             'ranger-show-bookmarks)
+        (define-key map "D"             'dired-do-delete)
+        (define-key map "G"             'ranger-goto-bottom)
+        (define-key map "H"             'ranger-prev-history)
+        (define-key map "I"             'ranger-insert-subdir)
+        (define-key map "J"             'ranger-next-subdir)
+        (define-key map "K"             'ranger-prev-subdir)
+        (define-key map "L"             'ranger-next-history)
+        (define-key map "R"             'dired-do-rename)
+        (define-key map "S"             'ranger-pop-eshell)
+        (define-key map "["             'ranger-prev-parent)
+        (define-key map "]"             'ranger-next-parent)
+        (define-key map "f"             'ranger-search-files)
+        (define-key map "gg"            'ranger-goto-top)
+        (define-key map "gh"            'ranger-go-home)
+        (define-key map "h"             'ranger-up-directory)
+        (define-key map [left]          'ranger-up-directory)
+        (define-key map "-"             'ranger-up-directory)
+        (define-key map "i"             'ranger-preview-toggle)
+        (define-key map "j"             'ranger-next-file)
+        (define-key map [down]          'ranger-next-file)
+        (define-key map "k"             'ranger-prev-file)
+        (define-key map [up]            'ranger-prev-file)
+        (define-key map "l"             'ranger-find-file)
+        (define-key map [right]         'ranger-find-file)
+        (define-key map "m"             'ranger-create-mark)
+        (define-key map "o"             'ranger-sort-criteria)
+        (define-key map "ws"            'ranger-open-file-vertically)
+        (define-key map "wv"            'ranger-open-file-horizontally)
+        (define-key map "wf"            'ranger-open-file-frame)
+        (define-key map "we"            'ranger-open-in-external-app)
+        (define-key map "q"             'ranger-disable)
+        (define-key map "u"             'dired-unmark)
+        (define-key map "v"             'dired-toggle-marks)
+        (define-key map "zz"            'ranger-show-history)
+        ;; copy and paste)
+        (define-key map "yy"            'ranger-copy)
+        (define-key map "dd"            'ranger-cut)
+        (define-key map "pp"            'ranger-paste)
+        (define-key map "po"            'ranger-paste-over)
+        (define-key map "p?"            'ranger-show-copy-contents)
+        ;; settings)
+        (define-key map "z+"            'ranger-more-parents)
+        (define-key map "z-"            'ranger-less-parents)
+        (define-key map "zh"            'ranger-toggle-dotfiles)
+        (define-key map "zi"            'ranger-toggle-literal)
+        (define-key map "zp"            'ranger-minimal-toggle)
+        (define-key map "zf"            'ranger-toggle-scale-images)
+        ;; tabs)
+        (define-key map "gn"            'ranger-new-tab)
+        (define-key map "gT"            'ranger-prev-tab)
+        (define-key map "gt"            'ranger-next-tab)
+        (define-key map "gc"            'ranger-close-tab)
+        (define-key map (kbd "C-r")     'ranger-refresh)
+        (define-key map (kbd "C-SPC")   'ranger-mark)
+        (define-key map (kbd "TAB")     'ranger-mark)
+        (define-key map (kbd "C-j")     'ranger-scroll-page-down)
+        (define-key map (kbd "C-k")     'ranger-scroll-page-up)
+        (define-key map (kbd "RET")     'ranger-find-file)
+        (define-key map (kbd "`")       'ranger-goto-mark)
 
-    ;; build off of dired commands
-    ;; (set-keymap-parent map dired-mode-map)
-
-    (define-key map "?"           'ranger-help)
-    (define-key map "'"           'ranger-show-size)
-    (define-key map "!"           'dired-do-shell-command)
-    (define-key map (kbd "C-c C-e") 'wdired-change-to-wdired-mode)
-    (define-key map "B"           'ranger-show-bookmarks)
-    (define-key map "D"           'dired-do-delete)
-    (define-key map "G"           'ranger-goto-bottom)
-    (define-key map "H"           'ranger-prev-history)
-    (define-key map "I"           'ranger-insert-subdir)
-    (define-key map "J"           'ranger-next-subdir)
-    (define-key map "K"           'ranger-prev-subdir)
-    (define-key map "L"           'ranger-next-history)
-    (define-key map "R"           'dired-do-rename)
-    (define-key map "S"           'ranger-pop-eshell)
-    (define-key map "["           'ranger-prev-parent)
-    (define-key map "]"           'ranger-next-parent)
-    (define-key map "f"           'ranger-search-files)
-    (define-key map "gg"          'ranger-goto-top)
-    (define-key map "gh"          'ranger-go-home)
-    (define-key map "h"           'ranger-up-directory)
-    (define-key map [left]        'ranger-up-directory)
-    (define-key map "-"           'ranger-up-directory)
-    (define-key map "i"           'ranger-preview-toggle)
-    (define-key map "j"           'ranger-next-file)
-    (define-key map [down]        'ranger-next-file)
-    (define-key map "k"           'ranger-prev-file)
-    (define-key map [up]          'ranger-prev-file)
-    (define-key map "l"           'ranger-find-file)
-    (define-key map [right]       'ranger-find-file)
-    (define-key map "m"           'ranger-create-mark)
-    (define-key map "o"           'ranger-sort-criteria)
-    (define-key map "ws"          'ranger-open-file-vertically)
-    (define-key map "wv"          'ranger-open-file-horizontally)
-    (define-key map "wf"          'ranger-open-file-frame)
-    (define-key map "we"          'ranger-open-in-external-app)
-    (define-key map "q"           'ranger-disable)
-    (define-key map "u"           'dired-unmark)
-    (define-key map "v"           'dired-toggle-marks)
-    (define-key map "zz"          'ranger-show-history)
-    ;; copy and paste)
-    (define-key map "yy"          'ranger-copy)
-    (define-key map "dd"          'ranger-cut)
-    (define-key map "pp"          'ranger-paste)
-    (define-key map "po"          'ranger-paste-over)
-    (define-key map "p?"          'ranger-show-copy-contents)
-    ;; settings)
-    (define-key map "z+"          'ranger-more-parents)
-    (define-key map "z-"          'ranger-less-parents)
-    (define-key map "zh"          'ranger-toggle-dotfiles)
-    (define-key map "zi"          'ranger-toggle-literal)
-    (define-key map "zp"          'ranger-minimal-toggle)
-    (define-key map "zf"          'ranger-toggle-scale-images)
-    ;; tabs)
-    (define-key map "gn"          'ranger-new-tab)
-    (define-key map "gT"          'ranger-prev-tab)
-    (define-key map "gt"          'ranger-next-tab)
-    (define-key map "gc"          'ranger-close-tab)
-    (define-key map (kbd "C-r")   'ranger-refresh)
-    (define-key map (kbd "C-SPC")   'ranger-mark)
-    (define-key map (kbd "TAB")   'ranger-mark)
-    (define-key map (kbd "C-j")   'ranger-scroll-page-down)
-    (define-key map (kbd "C-k")   'ranger-scroll-page-up)
-    (define-key map (kbd "RET")   'ranger-find-file)
-    (define-key map (kbd "`")     'ranger-goto-mark)
-
-    ;; search
-    (define-key map "/" 'ranger-search)
-    (define-key map "n" 'ranger-search-next)
-    (define-key map "N" 'ranger-search-previous)
-
-    ;; define a prefix for all dired commands
-    (define-prefix-command 'ranger-dired-map nil "Dired-prefix")
-    (setq ranger-dired-map (copy-tree dired-mode-map))
-    (define-key map ";" ranger-dired-map)
+        ;; search
+        (define-key map "/"             'ranger-search)
+        (define-key map "n"             'ranger-search-next)
+        (define-key map "N"             'ranger-search-previous)
+        ))
+     )
+        ;; define a prefix for all dired commands
+        (define-prefix-command 'ranger-dired-map nil "Dired-prefix")
+        (setq ranger-dired-map (copy-tree dired-mode-map))
+        (define-key map ";" ranger-dired-map)
 
     map)
   "Define mappings for ranger-mode." )
