@@ -3,7 +3,7 @@
 ;; Copyright (C) 2015  Rich Alesi
 
 ;; Author : Rich Alesi <https://github.com/ralesi>
-;; Version: 0.9.7
+;; Version: 0.9.8.1
 ;; Keywords: files, convenience
 ;; Homepage: https://github.com/ralesi/ranger
 ;; Package-Requires: ((emacs "24.4"))
@@ -335,12 +335,23 @@ preview window."
 
 ;; hooks
 (defvar ranger-mode-load-hook nil)
-(defvar ranger-parent-dir-hook '(revert-buffer
+(defvar ranger-preview-dir-hook '(ranger-to-dired
+                                  revert-buffer
+                                  ranger-sort
+                                  ranger-hide-dotfiles
+                                  ranger-omit
+                                  ranger-truncate
+                                  ))
+
+(defun ranger-truncate ()
+  (setq truncate-lines t))
+
+(defvar ranger-parent-dir-hook '(ranger-to-dired
+                                 revert-buffer
                                  dired-hide-details-mode
                                  ranger-sort
                                  ranger-hide-dotfiles
                                  ranger-omit
-                                 auto-revert-mode
                                  ranger-sub-window-setup))
 ;; TODO combine all dired appearance and sorting functions together
 ;; TODO add persistent hide-details setting
@@ -358,7 +369,10 @@ preview window."
         ;; basics
         (define-key map "?"             'ranger-help)
         (define-key map "du"            'ranger-show-size)
-        (define-key map "q"             'ranger-disable)
+        ;; TODO ranger-q should close current tab first then exit
+        ;; TODO quit with ZZ and ZQ also
+        (define-key map "q"             'ranger-close)
+        (define-key map "Q"             'ranger-disable)
         (define-key map (kbd "C-r")     'ranger-refresh)
 
         ;; bookmarks
@@ -390,6 +404,8 @@ preview window."
         (define-key map "j"             'ranger-next-file)
         (define-key map "k"             'ranger-prev-file)
         (define-key map "l"             'ranger-find-file)
+        (define-key map "J"             'ranger-page-down)
+        (define-key map "K"             'ranger-page-up)
         ;; TODO page up / page down - C-f / C-b
         ;; TODO half page up / down - J / K and C-d / C-u
         (define-key map [left]          'ranger-up-directory)
@@ -457,6 +473,8 @@ preview window."
         (define-key map "zi"            'ranger-toggle-literal)
         (define-key map "zp"            'ranger-minimal-toggle)
         (define-key map "zf"            'ranger-toggle-scale-images)
+        ;; TODO map zf   regexp filter
+
         ;; TODO map zc    toggle_option collapse_preview
         ;; TODO map zd    toggle_option sort_directories_first
         ;; TODO map <C-h> toggle_option show_hidden
@@ -501,10 +519,10 @@ preview window."
         (define-key map "we"            'ranger-open-in-external-app)
         ))
      )
-        ;; define a prefix for all dired commands
-        (define-prefix-command 'ranger-dired-map nil "Dired-prefix")
-        (setq ranger-dired-map (copy-tree dired-mode-map))
-        (define-key map ";" ranger-dired-map)
+    ;; define a prefix for all dired commands
+    (define-prefix-command 'ranger-dired-map nil "Dired-prefix")
+    (setq ranger-dired-map (copy-tree dired-mode-map))
+    (define-key map ";" ranger-dired-map)
 
     map)
   "Define mappings for ranger-mode." )
@@ -603,7 +621,7 @@ to not replace existing value."
 (when ranger-key
   (add-hook 'dired-mode-hook
             (defun ranger-set-dired-key ()
-                (define-key dired-mode-map ranger-key 'deer))))
+              (define-key dired-mode-map ranger-key 'deer))))
 
 (defun ranger-define-additional-maps (&optional mode)
   "Define additional mappings for ranger-mode that can't simply be in the defvar (depend on packages)."
@@ -633,8 +651,8 @@ to not replace existing value."
           ad-do-it)))
     )
 
-    ;; make sure isearch is cleared before we delete the buffer on exit
-    (add-hook 'ranger-mode-hook '(lambda () (setq isearch--current-buffer nil))))
+  ;; make sure isearch is cleared before we delete the buffer on exit
+  (add-hook 'ranger-mode-hook '(lambda () (setq isearch--current-buffer nil))))
 
 ;; wdired integration
 (eval-after-load 'wdired
@@ -769,7 +787,7 @@ Otherwise, with a prefix arg, mark files on the next ARG lines."
   (let ((tmp (generate-new-buffer "*temp*")))
     (if (r--fget ranger-minimal)
         (display-buffer-below-selected tmp '((window-height . 7)))
-    (display-buffer-at-bottom tmp '((window-height . 7))))
+      (display-buffer-at-bottom tmp '((window-height . 7))))
     (select-window
      (get-buffer-window tmp))
     (eshell)
@@ -1083,10 +1101,10 @@ ranger-`CHAR'."
 (defun ranger-sort (&optional force)
   "Perform current sort on directory. Specify `FORCE' to sort even when
 `ranger-persistent-sort' is nil."
-  (when (or force
-            ranger-persistent-sort)
-    (dired-sort-other
-     (concat dired-listing-switches
+  (dired-sort-other
+   (concat dired-listing-switches
+           (when (or force
+                     ranger-persistent-sort)
              ranger-sorting-switches))))
 
 
@@ -1299,11 +1317,23 @@ currently selected file in ranger. `IGNORE-HISTORY' will not update history-ring
   (goto-char (point-min))
   (ranger-prev-file))
 
+(defun ranger-page-down ()
+  "Move to top of file list"
+  (interactive)
+  (dired-next-line 6)
+  (ranger-prev-file))
+
 (defun ranger-goto-bottom ()
   "Move to top of file list"
   (interactive)
   (goto-char (point-max))
   (ranger-next-file))
+
+(defun ranger-page-up ()
+  "Move to top of file list"
+  (interactive)
+  (dired-previous-line 4)
+  (ranger-prev-file))
 
 (defun ranger-go-home ()
   "Move to top of file list"
@@ -1328,9 +1358,9 @@ currently selected file in ranger. `IGNORE-HISTORY' will not update history-ring
   "Move to previous file in ranger."
   (interactive)
   (dired-previous-line 1)
-  (unless ranger-modify-header
-    (when (bobp)
-      (dired-next-line 1)))
+  (when (bobp)
+    (dired-next-line
+     (if ranger-modify-header 0 1)))
   (ranger-show-details)
   (when ranger-preview-file
     (when (get-buffer "*ranger-prev*")
@@ -1378,7 +1408,7 @@ currently selected file in ranger. `IGNORE-HISTORY' will not update history-ring
                           (setq size
                                 (nth index
                                      (ranger--get-mount-partitions 'avail)))
-                          (setq return (format "Free%s (%s)" size mount)))
+                          (setq return (format "%s free (%s)" size mount)))
                         (setq index (+ index 1))
                         ))
                     "") ""))
@@ -1510,7 +1540,7 @@ slot)."
   (let* ((parent-name (cdar parent))
          (current-name (caar parent))
          (slot (cdr parent))
-         (parent-buffer (ranger-dir-buffer parent-name))
+         (parent-buffer (ranger-dir-buffer parent-name nil))
          (parent-window
           (display-buffer
            parent-buffer
@@ -1549,13 +1579,15 @@ slot)."
 
 
 ;; window creation subroutines
-(defun ranger-dir-buffer (entry)
-  "Open `ENTRY' in dired buffer."
+(defun ranger-dir-buffer (entry preview)
+  "Open `ENTRY' in dired buffer. Run `PREVIEW' or parent hooks."
   ;; (ignore-errors
   (with-current-buffer (or
                         (car (or (dired-buffers-for-dir entry) ()))
                         (dired-noselect entry))
-    (run-hooks 'ranger-parent-dir-hook)
+    (if preview
+        (run-hooks 'ranger-preview-dir-hook)
+      (run-hooks 'ranger-parent-dir-hook))
     (current-buffer)))
 
 (defun ranger-dir-contents (entry)
@@ -1665,8 +1697,10 @@ is set, show literally instead of actual buffer."
                        ranger-excluded-extensions))
         (with-demoted-errors "%S"
           (let* ((dir (file-directory-p entry-name))
+                 (dired-listing-switches ranger-listing-switches)
                  (preview-buffer (if dir
-                                     (ranger-dir-contents entry-name)
+                                     ;; (ranger-dir-buffer entry-name t)
+                                   (ranger-dir-contents entry-name)
                                    (ranger-preview-buffer entry-name)))
                  preview-window)
             (unless (and (not dir) ranger-dont-show-binary (ranger--prev-binary-p))
@@ -1685,6 +1719,12 @@ is set, show literally instead of actual buffer."
 
             (with-current-buffer preview-buffer
               (setq-local cursor-type nil)
+              (setq mouse-1-click-follows-link nil)
+              (local-set-key (kbd  "<mouse-1>") #'(lambda ()
+                                                    (interactive)
+                                                    (select-window ranger-window)
+                                                    (call-interactively
+                                                     'ranger-find-file)))
               (when ranger-modify-header
                 (setq header-line-format `(:eval (,ranger-preview-header-func)))))
 
@@ -2101,6 +2141,11 @@ fraction of the total frame size"
      filler
      rhs)))
 
+(defun window-order ()
+  (walk-windows)
+
+  )
+
 (defun ranger-parent-header-line ()
   "Setup header-line for ranger parent buffer."
   (let* ((relative (ranger--dir-relative))
@@ -2201,6 +2246,13 @@ properly provides the modeline in dired mode. "
   (interactive)
   (ranger-mode))
 
+(defun ranger-close ()
+  "Close tab or disable ranger"
+  (interactive)
+  (if (> (length ranger-t-alist) 1)
+      (ranger-close-tab)
+    (ranger-disable)))
+
 (defun ranger-disable ()
   "Interactively disable ranger-mode."
   (interactive)
@@ -2268,7 +2320,7 @@ properly provides the modeline in dired mode. "
     (delete-other-windows))
 
   ;; consider removing
-  (auto-revert-mode)
+  ;; (auto-revert-mode)
 
   ;; set hl-line-mode for ranger usage
   (hl-line-mode t)
@@ -2312,9 +2364,9 @@ properly provides the modeline in dired mode. "
 
   ;; recenter focus
   (when (bobp)
-    (dired-next-line 1))
+    (ranger-next-file))
   (when (eobp)
-    (dired-next-line -1))
+    (ranger-next-file))
   )
 
 (defun ranger-hide-the-cursor ()
